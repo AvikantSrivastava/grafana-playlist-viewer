@@ -27,19 +27,24 @@ in
   services.grafana-playlist-viewer = {
     enable = true;
     url = "http://localhost:3001/d/ad2lg4r/cpu?orgId=1&kiosk=tv";
-    username = "admin";
-    passwordFile = "/etc/gf-playlist-passwd";  # default
+    tokenFile = "/etc/gf-playlist-token";  # default
   };
 }
 ```
 
-### Password Setup
+### Service Account Token Setup
 
-Create the password file:
+1. In Grafana, go to **Administration** → **Users and access** → **Service accounts**
+2. Click **Add service account**, name it `kiosk-viewer`, set role to `Viewer`
+3. Click on the account, then **Add service account token**
+4. Copy the generated token
+
+Create the token file:
 
 ```bash
-echo "your-grafana-password" | sudo tee /etc/gf-playlist-passwd
-sudo chmod 600 /etc/gf-playlist-passwd
+echo "glsa_xxxxxxxxxxxx" | sudo tee /etc/gf-playlist-token
+sudo chmod 640 /etc/gf-playlist-token
+sudo chown root:users /etc/gf-playlist-token
 ```
 
 ### Rebuild
@@ -59,18 +64,16 @@ grafana-playlist-viewer
 ## Standalone Usage (without NixOS module)
 
 ```bash
-# Basic usage
+# Basic usage (no auth)
 nix run github:AvikantSrivastava/grafana-playlist-viewer -- "http://grafana:3000/d/dashboard"
 
-# With authentication
+# With service account token
 nix run github:AvikantSrivastava/grafana-playlist-viewer -- \
-  -u admin \
-  -p /etc/gf-playlist-passwd \
+  -t /etc/gf-playlist-token \
   "http://grafana:3000/d/dashboard"
 
 # Using environment variables
-GRAFANA_USER=admin \
-GRAFANA_PASSWORD_FILE=/etc/gf-playlist-passwd \
+GRAFANA_TOKEN_FILE=/etc/gf-playlist-token \
 nix run github:AvikantSrivastava/grafana-playlist-viewer -- "http://grafana:3000/d/dashboard"
 ```
 
@@ -80,17 +83,15 @@ nix run github:AvikantSrivastava/grafana-playlist-viewer -- "http://grafana:3000
 
 | Option | Description |
 |--------|-------------|
-| `-u, --user USER` | Grafana username (default: admin) |
-| `-p, --password-file FILE` | Path to file containing password |
+| `-t, --token-file FILE` | Path to file containing service account token |
 | `-h, --help` | Show help |
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `GRAFANA_USER` | Grafana username |
-| `GRAFANA_PASSWORD_FILE` | Path to password file |
-| `GRAFANA_PASSWORD` | Password directly (not recommended) |
+| `GRAFANA_TOKEN_FILE` | Path to token file |
+| `GRAFANA_TOKEN` | Token directly (not recommended) |
 
 ### NixOS Module Options
 
@@ -98,8 +99,7 @@ nix run github:AvikantSrivastava/grafana-playlist-viewer -- "http://grafana:3000
 |--------|------|---------|-------------|
 | `enable` | bool | `false` | Enable the viewer |
 | `url` | string | - | Grafana URL to display |
-| `username` | string | `"admin"` | Grafana username |
-| `passwordFile` | path | `"/etc/gf-playlist-passwd"` | Path to password file |
+| `tokenFile` | path | `"/etc/gf-playlist-token"` | Path to service account token file |
 
 ## Tips
 
