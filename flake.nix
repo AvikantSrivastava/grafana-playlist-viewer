@@ -30,29 +30,22 @@
                 echo "Usage: grafana-playlist-viewer [OPTIONS] <URL>"
                 echo ""
                 echo "Options:"
-                echo "  -u, --user USER         Grafana username (default: admin)"
-                echo "  -p, --password-file FILE  Path to file containing password"
+                echo "  -t, --token-file FILE   Path to file containing service account token"
                 echo "  -h, --help              Show this help"
                 echo ""
                 echo "Environment variables:"
-                echo "  GRAFANA_USER            Grafana username"
-                echo "  GRAFANA_PASSWORD_FILE   Path to password file"
-                echo "  GRAFANA_PASSWORD        Password (not recommended, use file instead)"
+                echo "  GRAFANA_TOKEN_FILE      Path to token file"
+                echo "  GRAFANA_TOKEN           Token directly (not recommended)"
               }
 
-              GRAFANA_USER="''${GRAFANA_USER:-admin}"
-              GRAFANA_PASSWORD="''${GRAFANA_PASSWORD:-}"
-              PASSWORD_FILE="''${GRAFANA_PASSWORD_FILE:-}"
+              GRAFANA_TOKEN="''${GRAFANA_TOKEN:-}"
+              TOKEN_FILE="''${GRAFANA_TOKEN_FILE:-}"
               URL=""
 
               while [[ $# -gt 0 ]]; do
                 case "$1" in
-                  -u|--user)
-                    GRAFANA_USER="$2"
-                    shift 2
-                    ;;
-                  -p|--password-file)
-                    PASSWORD_FILE="$2"
+                  -t|--token-file)
+                    TOKEN_FILE="$2"
                     shift 2
                     ;;
                   -h|--help)
@@ -77,14 +70,18 @@
                 exit 1
               fi
 
-              # Read password from file if specified
-              if [[ -n "$PASSWORD_FILE" ]] && [[ -f "$PASSWORD_FILE" ]]; then
-                GRAFANA_PASSWORD="$(cat "$PASSWORD_FILE")"
+              # Read token from file if specified
+              if [[ -n "$TOKEN_FILE" ]] && [[ -f "$TOKEN_FILE" ]]; then
+                GRAFANA_TOKEN="$(cat "$TOKEN_FILE")"
               fi
 
-              # Build URL with auth if password provided
-              if [[ -n "$GRAFANA_PASSWORD" ]]; then
-                URL="''${URL//:\/\/://$GRAFANA_USER:$GRAFANA_PASSWORD@}"
+              # Append auth_token to URL if token provided
+              if [[ -n "$GRAFANA_TOKEN" ]]; then
+                if [[ "$URL" == *"?"* ]]; then
+                  URL="$URL&auth_token=$GRAFANA_TOKEN"
+                else
+                  URL="$URL?auth_token=$GRAFANA_TOKEN"
+                fi
               fi
 
               PROFILE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/grafana-playlist-viewer"
@@ -131,16 +128,10 @@
               description = "Grafana playlist URL to display";
             };
 
-            username = lib.mkOption {
-              type = lib.types.str;
-              default = "admin";
-              description = "Grafana username for authentication";
-            };
-
-            passwordFile = lib.mkOption {
+            tokenFile = lib.mkOption {
               type = lib.types.nullOr lib.types.path;
-              default = "/etc/gf-playlist-passwd";
-              description = "Path to file containing Grafana password";
+              default = "/etc/gf-playlist-token";
+              description = "Path to file containing Grafana service account token";
             };
           };
 
@@ -152,12 +143,6 @@
               }
             ];
 
-            # Create password file with secure permissions
-            environment.etc."gf-playlist-passwd" = lib.mkIf (cfg.passwordFile == "/etc/gf-playlist-passwd") {
-              mode = "0600";
-              text = ""; # Placeholder - user must populate this file
-            };
-
             environment.systemPackages = [
               (pkgs.writeShellApplication {
                 name = "grafana-playlist-viewer";
@@ -168,18 +153,22 @@
                   PROFILE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/grafana-playlist-viewer"
                   mkdir -p "$PROFILE_DIR"
 
-                  # Read password from file
-                  GRAFANA_PASSWORD=""
-                  ${lib.optionalString (cfg.passwordFile != null) ''
-                  if [ -f "${cfg.passwordFile}" ]; then
-                    GRAFANA_PASSWORD="$(cat "${cfg.passwordFile}")"
+                  # Read token from file
+                  GRAFANA_TOKEN=""
+                  ${lib.optionalString (cfg.tokenFile != null) ''
+                  if [ -f "${cfg.tokenFile}" ]; then
+                    GRAFANA_TOKEN="$(cat "${cfg.tokenFile}")"
                   fi
                   ''}
 
-                  # Build URL with auth
+                  # Build URL with auth_token parameter
                   GRAFANA_URL="${cfg.url}"
-                  if [ -n "$GRAFANA_PASSWORD" ]; then
-                    GRAFANA_URL=$(echo "${cfg.url}" | sed "s|://|://${cfg.username}:$GRAFANA_PASSWORD@|")
+                  if [ -n "$GRAFANA_TOKEN" ]; then
+                    if [[ "$GRAFANA_URL" == *"?"* ]]; then
+                      GRAFANA_URL="$GRAFANA_URL&auth_token=$GRAFANA_TOKEN"
+                    else
+                      GRAFANA_URL="$GRAFANA_URL?auth_token=$GRAFANA_TOKEN"
+                    fi
                   fi
 
                   # Create Firefox user.js for kiosk-like behavior
