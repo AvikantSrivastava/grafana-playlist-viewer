@@ -144,57 +144,71 @@
             ];
 
             environment.systemPackages = [
-              (pkgs.writeShellApplication {
+              (pkgs.symlinkJoin {
                 name = "grafana-playlist-viewer";
+                paths = [
+                  (pkgs.writeShellApplication {
+                    name = "grafana-playlist-viewer";
 
-                runtimeInputs = [ pkgs.firefox ];
+                    runtimeInputs = [ pkgs.firefox ];
 
-                text = ''
-                  PROFILE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/grafana-playlist-viewer"
-                  mkdir -p "$PROFILE_DIR"
+                    text = ''
+                      PROFILE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/grafana-playlist-viewer"
+                      mkdir -p "$PROFILE_DIR"
 
-                  # Read token from file
-                  GRAFANA_TOKEN=""
-                  ${lib.optionalString (cfg.tokenFile != null) ''
-                  if [ -f "${cfg.tokenFile}" ]; then
-                    GRAFANA_TOKEN="$(cat "${cfg.tokenFile}")"
-                  fi
-                  ''}
+                      # Read token from file
+                      GRAFANA_TOKEN=""
+                      ${lib.optionalString (cfg.tokenFile != null) ''
+                      if [ -f "${cfg.tokenFile}" ]; then
+                        GRAFANA_TOKEN="$(cat "${cfg.tokenFile}")"
+                      fi
+                      ''}
 
-                  # Build URL with auth_token parameter
-                  GRAFANA_URL="${cfg.url}"
-                  if [ -n "$GRAFANA_TOKEN" ]; then
-                    if [[ "$GRAFANA_URL" == *"?"* ]]; then
-                      GRAFANA_URL="$GRAFANA_URL&auth_token=$GRAFANA_TOKEN"
-                    else
-                      GRAFANA_URL="$GRAFANA_URL?auth_token=$GRAFANA_TOKEN"
-                    fi
-                  fi
+                      # Build URL with auth_token parameter
+                      GRAFANA_URL="${cfg.url}"
+                      if [ -n "$GRAFANA_TOKEN" ]; then
+                        if [[ "$GRAFANA_URL" == *"?"* ]]; then
+                          GRAFANA_URL="$GRAFANA_URL&auth_token=$GRAFANA_TOKEN"
+                        else
+                          GRAFANA_URL="$GRAFANA_URL?auth_token=$GRAFANA_TOKEN"
+                        fi
+                      fi
 
-                  # Create Firefox user.js for kiosk-like behavior
-                  cat > "$PROFILE_DIR/user.js" << 'EOF'
-                  user_pref("browser.shell.checkDefaultBrowser", false);
-                  user_pref("browser.sessionstore.resume_from_crash", false);
-                  user_pref("browser.startup.homepage_override.mstone", "ignore");
-                  user_pref("browser.tabs.warnOnClose", false);
-                  user_pref("browser.warnOnQuit", false);
-                  user_pref("toolkit.startup.max_resumed_crashes", -1);
-                  user_pref("browser.cache.disk.enable", false);
-                  user_pref("browser.cache.memory.enable", true);
-                  user_pref("browser.chrome.toolbar_tips", false);
-                  user_pref("browser.fullscreen.autohide", true);
-                  user_pref("full-screen-api.ignore-widgets", true);
-                  user_pref("full-screen-api.warning.timeout", 0);
-                  user_pref("privacy.trackingprotection.enabled", false);
-                  user_pref("network.cookie.cookieBehavior", 0);
-                  user_pref("dom.webnotifications.enabled", false);
-                  user_pref("permissions.default.desktop-notification", 2);
-                  user_pref("app.update.enabled", false);
-                  user_pref("app.update.auto", false);
-                  EOF
+                      # Create Firefox user.js for kiosk-like behavior
+                      cat > "$PROFILE_DIR/user.js" << 'EOF'
+                      user_pref("browser.shell.checkDefaultBrowser", false);
+                      user_pref("browser.sessionstore.resume_from_crash", false);
+                      user_pref("browser.startup.homepage_override.mstone", "ignore");
+                      user_pref("browser.tabs.warnOnClose", false);
+                      user_pref("browser.warnOnQuit", false);
+                      user_pref("toolkit.startup.max_resumed_crashes", -1);
+                      user_pref("browser.cache.disk.enable", false);
+                      user_pref("browser.cache.memory.enable", true);
+                      user_pref("browser.chrome.toolbar_tips", false);
+                      user_pref("browser.fullscreen.autohide", true);
+                      user_pref("full-screen-api.ignore-widgets", true);
+                      user_pref("full-screen-api.warning.timeout", 0);
+                      user_pref("privacy.trackingprotection.enabled", false);
+                      user_pref("network.cookie.cookieBehavior", 0);
+                      user_pref("dom.webnotifications.enabled", false);
+                      user_pref("permissions.default.desktop-notification", 2);
+                      user_pref("app.update.enabled", false);
+                      user_pref("app.update.auto", false);
+                      EOF
 
-                  exec firefox --kiosk --profile "$PROFILE_DIR" --no-remote "$GRAFANA_URL"
-                '';
+                      exec firefox --kiosk --profile "$PROFILE_DIR" --no-remote "$GRAFANA_URL"
+                    '';
+                  })
+                  (pkgs.makeDesktopItem {
+                    name = "grafana-playlist-viewer";
+                    desktopName = "Grafana Playlist Viewer";
+                    comment = "Borderless Firefox kiosk for Grafana playlists";
+                    exec = "grafana-playlist-viewer";
+                    icon = "grafana";
+                    categories = [ "Utility" "Network" ];
+                    terminal = false;
+                  })
+                ];
               })
             ];
           };
